@@ -1,0 +1,27 @@
+\babel@toc {italian}{}\relax 
+\babel@toc {italian}{}\relax 
+\contentsline {section}{\numberline {1}Programmazione di sistema UNIX}{2}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Argomenti di programma}{2}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Compilazione}{2}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Eseguendo il programma}{2}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Variabile di ambiente}{3}{subsection.1.4}%
+\contentsline {subsection}{\numberline {1.5}Perror e Streerror}{3}{subsection.1.5}%
+\contentsline {section}{\numberline {2}Operazioni sui file}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Apertura file}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Duplicazione file descriptor}{4}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Chiusura di un file descriptor}{4}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Lettura e scrittura di un file descriptor}{4}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Esempio di lettura/scrittura}{5}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.6}Trasferire dati tra descrittori}{6}{subsection.2.6}%
+\contentsline {subsection}{\numberline {2.7}Copia di file con sendfile}{7}{subsection.2.7}%
+\contentsline {subsection}{\numberline {2.8}Informazioni su file (ordinari, speciali, direttori)}{8}{subsection.2.8}%
+\contentsline {subsection}{\numberline {2.9}Cancellazione di file}{8}{subsection.2.9}%
+\contentsline {section}{\numberline {3}Primitive per la gestione degli accetti}{9}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Creazione di un nuovo processo}{9}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Sistema di generazione}{9}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Identificazione dei processi}{9}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Sincronizzazione tra padre e figlio}{10}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Uso della wait}{10}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Terminazione volontaria di un processo}{10}{subsection.3.6}%
+\contentsline {subsection}{\numberline {3.7}Esecuzione di un programma}{11}{subsection.3.7}%
+\contentsline {subsection}{\numberline {3.8}Esempio di uso della execve}{11}{subsection.3.8}%

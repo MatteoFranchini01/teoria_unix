@@ -1,0 +1,343 @@
+\documentclass[italian,12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{babel}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tocloft}
+\title{Teoria UNIX}
+\author{Matteo Franchini}
+
+\renewcommand{\cftfigpresnum}{Figura~}
+\renewcommand{\cftfigaftersnum}{:}
+\setlength{\cftfigindent}{0pt}
+\setlength{\cftfignumwidth}{5em}
+\renewcommand{\listfigurename}{Elenco delle Figure}
+
+\begin{document}
+	\maketitle
+	\tableofcontents
+	\section{Programmazione di sistema UNIX}
+	\subsection{Argomenti di programma}
+	Un programma può accedere agli eventuali argomenti di invocazione attraverso i parametri della funzione principale \textbf{main}
+	\begin{lstlisting}[xleftmargin=-5.5cm]
+		main (int argc, char *argv[]) {
+			int i;
+			printf("Numero di argomenti = %d\n", argc);
+			for (i = 0; i < argc; i++) {
+				printf("Argomento %d (argv[%d]) = %s\n", i, i, argv[i]);
+			}
+		}
+	\end{lstlisting}
+	si noti che \verb|%d| si usa per indicare che in quel punto ci va un \textbf{intero}, mentre \verb|%s| si usa per indicare che ci va una \textbf{stringa}
+	\subsection{Compilazione}
+	\begin{verbatim}
+		gcc -o mioprogramma mioprogramma.c
+	\end{verbatim}
+	\subsection{Eseguendo il programma}
+	\begin{verbatim}
+		./mioprogramma 1 pippo pluto 4
+	\end{verbatim}
+	\newpage
+	\subsection{Variabile di ambiente}
+	\begin{lstlisting}[xleftmargin=-1 cm]
+main(int argc, char *argv[], char **envp) {
+	int i;
+	prinft("Numero di argomenti (argc) = %d\n", argc);
+	for (i = 0; i < argc; i++) {
+		printf("Argomento %d (argv[%d]) = %s\n", i, i, argv[i]);
+	}
+	while (*envp != NULL) { printf("%s\n", envp++); }
+}
+	\end{lstlisting}
+	\subsection{Perror e Streerror}
+	\verb|perror| e \verb|strerror| permettono di visualizzare o di generare messaggi descritti dell'errore
+	\begin{lstlisting}
+if (syscall_N (..., ...) < 0)
+{
+	perror("Errore nella syscall_N");
+	/*
+	la descrizione dell'errore viene concatenata 
+	alla stringa argomento
+	*/
+	exit(1); // terminazione del processo con errore	
+}
+	\end{lstlisting}
+\section{Operazioni sui file}
+\subsection{Apertura file}
+\textbf{Apertura ed eventuale creazione di un file}
+\begin{lstlisting}
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int open (const char *pathname, int flags);
+\end{lstlisting}
+\textbf{oppure}
+\begin{lstlisting}
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+fd = int open (const char *pathname, int flags, mode_t mode);
+\end{lstlisting}
+\begin{itemize}
+	\item \verb|pathname| è il nome del percorso
+	\item \verb|flags| contiene il modo di accesso richiesto: uno tra \verb|O_RDONLY|, \verb|O_WRONLY|, \verb|O_RDWR| più altre eventuali OR\\
+	Esempio: 
+	\begin{verbatim}
+		O_WRONLY|O_CREAT|O_TRUNC
+	\end{verbatim}
+	per richiedere la creazione di un nuovo file o per azzerarlo se già esiste
+	\item \verb|mode| indica i \textbf{diritti di accesso}
+\end{itemize}
+Se l'\textbf{invocazione della primitiva} \verb|open| ha successo, viene restituito al processo un valore intero $\geq 0$ che costituisce il \textbf{file descriptor (fd)} per quel file
+\subsection{Duplicazione file descriptor}
+\begin{lstlisting}
+#include <unistd.h>
+
+int dup (int oldfd);
+int dup2(int oldfd, int newfd);
+\end{lstlisting}
+\subsection{Chiusura di un file descriptor}
+\begin{lstlisting}
+#include <unistd.h>
+
+int close (int fd);
+\end{lstlisting}
+\subsection{Lettura e scrittura di un file descriptor}
+\begin{lstlisting}
+#include <unistd.h>
+
+int read (int fd, void *buf, size_t count);
+int write (int fd, void *buf, size_t count);
+\end{lstlisting}
+\begin{itemize}
+	\item \verb|read| prova a leggere dall'oggetto a cui si riferisce \verb|fd| fino a \verb|count| byte, memorizzandoli a partire dalla locazione \verb|buf|
+	\item \verb|write| prova a scrivere sull'oggetto a cui si riferisce \verb|fd| fino a \verb|count| byte, letti a partire dalla locazione \verb|buf||
+\end{itemize}
+\subsection{Esempio di lettura/scrittura}
+\begin{lstlisting}[xleftmargin=-1.5cm]
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define BUFSIZ 4096
+
+main () {
+	char *f1 = "filesorg";
+	char *f2 = "/tmp/filedest";
+	char buffer[BUFSIZ];
+	int infile, outfile; // file descriptor
+	int nread;
+	
+	// apertura file sorgente
+	
+	if ((infile = open(f1, O_RONLY)) < 0) {
+		perror("Apertura f1");
+		exit(1);
+	}
+	
+	/* open mi permette di aprire il file
+	 * quando scriviamo infile = ... stiamo assegnando
+	 * il valore restituito dalla chiamata open a infile
+	 * in modo da poter accedere al file utilizzando
+	 * direttamente infile, invece che il file descriptor
+	 * metto la condizione < 0 in quanto se abbiamo un 
+	 * errore nell'apertura il fd < 0
+	 */
+	 
+	 // creazione file destinazione
+	 if ((outfile = open(f2, WRONLY|O_CREAT|O_TRUNC, 0644)) < 0) {
+	 	perror("Creazione f2");
+	 	exit(2);
+	 }
+	 
+	 /* ho messo O_WRONLY or O_CREAT or O_TRUNC
+	  * in quanto se esiste il file ci scrivo sopra, 
+	  * altrimenti lo creo
+	  * oppure lo sovrascrivo
+	  */
+	
+	// ciclo di lettura/scrittura 
+	
+	while ((nread = read(infile, buffer, BUFSIZ)) > 0) {
+		if (write (outfile, buffer, nread) != read) {
+			perror("Errore write");
+			exit(3);
+		}
+		if (nread < 0) {
+			perror("Errore read");
+			exit(4);
+		}
+	}
+	close(infile);
+	close(outfile);
+	exit(0);
+}
+\end{lstlisting}
+\subsection{Trasferire dati tra descrittori}
+\begin{lstlisting}[xleftmargin=-1cm]
+#include <sys/sendfile.h>
+
+ssize_t sendfile (int out_fd, int in_fd, off_t *offset, size_t count);
+\end{lstlisting}
+\verb|sendfile| copia dati da un file descriptor all'altro \textbf{rimanendo all'interno del kernel}, quindi è più efficiente dell'uso combinato di read e write che trasferiscono dati tra spazio utente e kernel
+\begin{itemize}
+	\item Se \verb|offset| non è NULL, indica l'indirizzo di una variabile contenente lo spiazzamento da cui iniziare la lettura da \verb|in_fd| che sarà modificata all'offset successivo all'ultimo byte letto; \verb|count| è il numero di byte da copia
+	\item Se \verb|offset| non è NULL, allora \verb|sendfile()| non modifica il file offset di \verb|in_fd| altrimenti esso viene aggiustato per riflettere il numero di byte letti da \verb|in_fd|
+\end{itemize}
+\subsection{Copia di file con sendfile}
+\begin{lstlisting}[xleftmargin=-1.5 cm]
+#include <fcntl.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main (int argc, char* argv[]) {
+	int read_fd, write_fd;
+	struct stat stat_buf;
+	off_t offset = 0;
+	
+	// apertura file input
+	
+	read_fd = open(argv[1], O_RDONLY);
+	
+	/* con fstat otteniamo le informazioni
+	 * del file che viene aperto e le salviamo
+	 * all'interno di stat_buf
+	 * in particolare in questo caso lo facciamo
+	 * per ottenere la dimensione del file
+	 */
+	
+	fstat(read_fd, &stat_buf);
+	
+	/* apriamo il file di lettura con gli stessi
+	 * permessi del file sorgente "stat_buf.st_mode"
+	 */
+	 
+	 write_fd = open (argv[2], O_WRONLY | O_CREAT, stat_buf.st_mode);
+	 
+	 sendfile (write_fd, read_fd, &offset, stat_buf.st_size);
+	 
+	 close (read_fd);
+	 close (write_fd);
+	 
+	 return 0;
+}
+\end{lstlisting}
+\subsection{Informazioni su file (ordinari, speciali, direttori)}
+\begin{lstlisting}
+#include <sys/stat.h>
+#include <unistd.h>
+
+int stat (const char *filename, struct stat *buf);
+int fstat (int fd, struct stat *buf);	
+\end{lstlisting}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=1 \linewidth]{/Users/matteofranchini/Library/CloudStorage/OneDrive-UniversitàdegliStudidiParma/Università/Appunti e slide/II anno/Screen slide/Screenshot 2023-09-02 alle 15.54.32.png}
+	\caption{Struttura buf}
+\end{figure}
+\subsection{Cancellazione di file}
+\begin{lstlisting}
+#include <unistd.h>
+
+int unlink (const char *filename);
+\end{lstlisting}
+Il file viene cancellato solo se: si tratta dell'ultimo link al file, non vi sono altri processi che lo hanno aperto
+\section{Primitive per la gestione degli accetti}
+\subsection{Creazione di un nuovo processo}
+\begin{lstlisting}
+#include <unistd.h>
+
+int fork (void);
+\end{lstlisting}
+Viene creato un nuovo processo (figlio) identico al processo padre che ha invocato \verb|fork()|.\\
+\textbf{Solo il valore di uscita della} \verb|fork| \textbf{è diverso per i due processi}
+\begin{verbatim}
+	pid = fork();
+\end{verbatim}
+per il padre \verb|pid| vale il pid del figlio, per il figlio \verb|pid = 0| 
+\subsection{Sistema di generazione}
+\begin{lstlisting}
+#include <unistd.h>
+
+if (fork() = = 0) {
+	// codice del FIGLIO
+}
+else {
+	// codice del PADRE
+}
+\end{lstlisting}
+il padre può decidere se continuare la propria esecuzione concorrentemente a quella del figlio, oppure attendere che il figlio termini (\textbf{primitiva } \verb|wait|)
+\subsection{Identificazione dei processi}
+\begin{lstlisting}
+#include <unistd.h>
+
+pid_t getpid (void);
+pid_t getppid (void);
+\end{lstlisting}
+La \verb|getpid| ritorna al processo chiamante il suo PID, mentre \verb|getppid| ritorna al processo chiamante l'identificatore di processo di suo padre (PID del PADRE)
+\subsection{Sincronizzazione tra padre e figlio}
+\begin{lstlisting}
+#include <sys/types.h>
+#include <sys/wait.h>
+
+pid_t wait (int *status);
+\end{lstlisting}
+Il processo chiamante rimane bloccato in attesa della terminazione di uno tra i suoi figli.\\
+Se la \verb|wait| ha successo il valore di ritorno è il PID del processo figlio che è terminato
+\subsection{Uso della wait}
+\begin{lstlisting}
+int status;
+
+if (fork () = = 0) {
+	// Codice del figlio
+}
+else {
+	// Codice del padre
+	...
+	// Attende che il figlio termini
+	wait(&status);
+}
+\end{lstlisting}
+Nel caso di più figli in esecuzione può essere necessario attenere \textbf{la terminazione di uno specifico figlio}
+\begin{verbatim}
+	while (pid = wait(&status) != pidfiglio);
+\end{verbatim}
+oppure direttamente
+\begin{verbatim}
+	waitpid(pidfiglio, &status, NULL)
+\end{verbatim}
+\subsection{Terminazione volontaria di un processo}
+\begin{verbatim}
+	#include <stdlib.h>
+	void exit(int status);
+\end{verbatim}
+\begin{verbatim}
+	#include <unistd.h>
+	void _exit(int status)
+\end{verbatim}
+Un processo \textbf{termina volontariamente} invocando la primitiva \verb|_exit| oppure la funzione \verb|exit| della libreria standard I/O di C
+\subsection{Esecuzione di un programma}
+\begin{verbatim}
+#include <unistd.h>
+
+int execve (const char *pathname, char *const argv[], char *const envp[]);
+\end{verbatim}
+Il processo chiamante passa ad eseguire il programma \verb|filename|
+La fork \textbf{crea un nuovo processo identico al padre}, la exec permette \textbf{di modificare l'ambiente di esecuzione di un processo}
+\subsection{Esempio di uso della execve}
+
+
+
+\newpage
+\listoffigures
+\end{document}
