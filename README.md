@@ -1,6 +1,6 @@
 # UNIX Programming Theory and System Calls
 
-** :it: Benvenuti nella repository "UNIX Programming Theory and System Calls!"**
+:it: **Benvenuti nella repository "UNIX Programming Theory and System Calls!"**
 
 Questo repository contiene un riassunto completo della teoria di programmazione di Unix che è stata insegnata nel corso di Sistemi Operativi presso l'Università di Parma. Inoltre, troverete una serie di esempi di implementazione delle principali chiamate di sistema di Unix, che sono fondamentali per lo sviluppo di software su sistemi Unix-based.
 
@@ -36,7 +36,7 @@ Grazie per l'interesse e il contributo a "UNIX Programming Theory and System Cal
 
 _________________________________
 
-**Welcome to the "UNIX Programming Theory and System Calls" repository!**
+:uk: **Welcome to the "UNIX Programming Theory and System Calls" repository!**
 
 This repository contains a comprehensive summary of Unix programming theory that was taught in the Operating Systems course at the University of Parma. Additionally, you will find a series of implementation examples of the core Unix system calls, which are essential for developing software on Unix-based systems.
 
