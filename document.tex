@@ -335,7 +335,47 @@ int execve (const char *pathname, char *const argv[], char *const envp[]);
 Il processo chiamante passa ad eseguire il programma \verb|filename|
 La fork \textbf{crea un nuovo processo identico al padre}, la exec permette \textbf{di modificare l'ambiente di esecuzione di un processo}
 \subsection{Esempio di uso della execve}
+\begin{lstlisting}
+#include <sys/types.h>
+#include <sys/wait.h>
 
+int main () {
+	int status;
+	pid_t pid;
+	char *env[] = {
+		"TERM=vt100",
+		"PATH=/bin:/usr/bin",
+		(char *) 0
+	};
+	
+	char *args[] = {
+		"cat",
+		"f1",
+		"f2",
+		(char *) 0
+	}; 
+	
+	if ((pid=fork()) = = 0) {
+		// codice del figlio
+		execve("bin/cat", args, env);
+		
+		/* si torna a questo punto solo
+		 * nel caso in cui si verifichi un
+		 * errore
+		 */
+		perror("excve")
+		exit(1);
+	}
+	else {
+		// codice del padre
+		wait(&status);
+		printf("Il processo %d e' terminato con %d\n", 
+		pid, WEXITSTATUS(status));
+	}
+	exit(0);
+}
+\end{lstlisting}
+\section{Primitive per la gestione dei segnali}
 
 
 \newpage

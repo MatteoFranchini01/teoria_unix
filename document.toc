@@ -25,3 +25,4 @@
 \contentsline {subsection}{\numberline {3.6}Terminazione volontaria di un processo}{10}{subsection.3.6}%
 \contentsline {subsection}{\numberline {3.7}Esecuzione di un programma}{11}{subsection.3.7}%
 \contentsline {subsection}{\numberline {3.8}Esempio di uso della execve}{11}{subsection.3.8}%
+\contentsline {section}{\numberline {4}Primitive per la gestione dei segnali}{12}{section.4}%
