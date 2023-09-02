@@ -34,6 +34,8 @@ Questo repository è distribuito con licenza open source. Per ulteriori dettagli
 
 Grazie per l'interesse e il contributo a "UNIX Programming Theory and System Calls"!
 
+_________________________________
+
 **Welcome to the "UNIX Programming Theory and System Calls" repository!**
 
 This repository contains a comprehensive summary of Unix programming theory that was taught in the Operating Systems course at the University of Parma. Additionally, you will find a series of implementation examples of the core Unix system calls, which are essential for developing software on Unix-based systems.
