@@ -5,6 +5,7 @@
 \usepackage{babel}
 \usepackage{hyperref}
 \usepackage{graphicx}
+\usepackage{titling}
 \usepackage{tocloft}
 \title{Teoria UNIX}
 \author{Matteo Franchini}
@@ -16,8 +17,21 @@
 \renewcommand{\listfigurename}{Elenco delle Figure}
 
 \begin{document}
-	\maketitle
-	\tableofcontents
+	
+	
+\begin{titlepage}
+	\centering
+	{\LARGE \textbf{\thetitle }\par}
+	\vspace{1cm}
+	{\Large Sistemi Operativi \par}
+	\vspace{0.5cm}
+	{cdl Ingegneria delle Tecnologie Informatiche\par}
+	{Università degli studi di Parma \par}
+	\vspace{2cm}
+	{\small \today \par}
+	{\small \theauthor \par}
+\end{titlepage}
+\tableofcontents
 	\section{Programmazione di sistema UNIX}
 	\subsection{Argomenti di programma}
 	Un programma può accedere agli eventuali argomenti di invocazione attraverso i parametri della funzione principale \textbf{main}
@@ -376,6 +390,656 @@ int main () {
 }
 \end{lstlisting}
 \section{Primitive per la gestione dei segnali}
+Quali sono le possibilità di gestione di un segnale per un processo?
+\begin{enumerate}
+	\item può decidere di \textbf{ignorarlo}
+	\item può contare su un'azione di \textbf{default}
+	\item può far eseguire un'\textbf{azione} specifica dall'utente
+\end{enumerate}
+\newpage
+\subsection{Elenco dei segnali Linux}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.9 \linewidth]{../../Screen slide/Screenshot 2023-09-02 alle 16.43.16}
+	\caption{Elenco segnali - prima parte}
+\end{figure}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.9 \linewidth]{../../Screen slide/Screenshot 2023-09-02 alle 16.43.26}
+	\caption{Elenco segnali - seconda parte}
+\end{figure}
+\subsection{Interfaccia signal}
+\begin{verbatim}
+	#include <signal.h>
+	
+	void (*signal(int signo, void (*func) (int))) (int);
+\end{verbatim}
+si specifica quale segnale (\verb|signo|) e come deve essere trattato \verb|func|
+\begin{lstlisting}
+void catchint(int);
+
+main () {
+int i;
+
+/* la notifica di un segnale SIGINT
+ * deve avviare il gestore catchint:
+ * si dice comunemente che il
+ * processo "intercetta" o "aggancia"
+ * il segnale
+ */
+ 
+ signal(SIGINT, catchint);
+ 
+ while(1) {
+ 	for (i = 0; i < 100; i++) {
+ 		printf("i vale %d\n", i);
+ 	}
+ 	sleep(1);
+ }
+}
+
+void catchint (int signo) {
+	printf("catchint: signo=%d\n", signo);
+}
+\end{lstlisting}
+\subsection{Kill}
+\begin{verbatim}
+	#include <sys/types.h>
+	#include <signal.h>
+	
+	int kill(pid_t pid, int sig);
+\end{verbatim}
+Invia il segnale \verb|sig| al processo \verb|pid|
+\begin{itemize}
+	\item il processo mittente e quello destinatario del segnale devono appartenere allo stesso utente
+	\item solo \textbf{root} può inviare segnali a processi di altri utenti
+	\item \verb|kill (0, sig)| invia il segnale sig a tutti i processi del gruppo del processo chiamante (padre, figli, nipoti, ecc)
+\end{itemize}
+\subsection{Invio temporizzato di segnali}
+\begin{verbatim}
+	#include <unistd.h>
+	
+	unsigned int alarm (unsigned int nseconds);
+\end{verbatim}
+dopo \textit{nseconds} secondi il processo chiamante riceve un segnale SIGALARM inviato dal SO
+\subsection{Attesa di un segnale}
+\begin{verbatim}
+	#include <unistd.h>
+	
+	int pause(void);
+\end{verbatim}
+\subsection{Gestione affidabile dei segnali}
+\begin{verbatim}
+	#include <signal.h>
+	
+	// azzera/rende vuoto un sigset
+	
+	int sigemptyset (sigset_t *set); 
+	
+	// mette tutti i segnali nel sigset
+	
+	int sigfillset (sigset_t *set);
+	
+	// aggiunge un segnale al siget
+	
+	int sigaddset (sigset_t *set, int signo);
+	
+	// rimuove un segnale dal siget
+	
+	int sigdelset (sigset_t *set, int signo);
+	
+	// valuta se quel segnale è presente nel sigset
+	
+	int sigismember (sigset_t *set, int signo);
+	
+\end{verbatim}
+\subsection{Signal mask}
+Un processo può esaminare e/o modificare la propria \textit{signal mask} che è \textbf{l'insieme dei segnali che sta attualmente bloccando}
+\begin{verbatim}
+	int sigprocmask (int how, const sigset_t *set, sigset_t *oset);
+\end{verbatim}
+dove \textit{how} può valere:
+\begin{itemize}
+	\item \verb|SIG_BLOCK|: la nuova signal mask diventa l'OR binario di quella corrente con quella specificata dal \textit{set}
+	\item \verb|SIG_UNBLOCK|: i segnali indicati da set sono rimossi dalla signal mask
+	\item \verb|SIG_SETMASK|: la nuova signal mask diventa quella specifica da \verb|set|
+\end{itemize}
+\begin{verbatim}
+	int sigpending (sigset_t *set);
+\end{verbatim}
+restituisce in \textit{set} il sottoinsieme dei segnali bloccati che sono attualmente pendenti ovvero inviati ma non ancora notificati perché bloccati.\\
+La \verb|sigaction| è la primitiva fondamentale per la gestione dei segnali affidabili
+\begin{verbatim}
+	#include <signal.h>
+	
+	int sigaction (int signo, const struct sigaction *act, 
+	const struct sigaction *oact);
+\end{verbatim}
+permette di esaminare e/o modificare l'azione associata ad un segnale
+\begin{itemize}
+	\item \verb|signo| identifica il segnale del quale si vuole esaminare e/o modificare l'azione
+	\item \verb|act| non è NULL si modifica l'azione
+	\item \verb|oact| non è NULL viene restituia l'azione precedente
+\end{itemize}
+\newpage
+\textbf{Definizione della struttura sigaction}
+\begin{verbatim}
+	struct sigaction {
+		// indirizzo del gestore o SIG_IGN o SIG_DFL
+		void (*sa_handler) ();
+		
+		/* 
+		 * indirizzo del gestore che riceve informazioni addizionali 
+		 * sul segnale ricevuto
+		 */
+		void (*sa_sigaction)(int, siginfo_t *, void *);
+		
+		// segnali addizionali da bloccare prima dell'esecuzione del gestore
+		sigset_t sa_mask;
+		
+		// opzioni addizionali
+		int sa_flags;
+	}
+\end{verbatim}
+Attesa di un segnale con la gestione affidabile
+\begin{verbatim}
+	int sigsuspend(const sigset_t *sigmask)
+\end{verbatim}
+permette l'attivazione della signal mask specificata e l'attesa di un qualunque segnale in modo atomico
+\newpage
+\subsection{Esempio di interazione tra processi mediante segnali affidabili}
+In questo esempio vediamo due processi, un padre e un figlio, che comunicano attraverso un segnale SIGUSR1
+\begin{lstlisting}[xleftmargin=-2cm]
+#include <signal.h>
+#include <unistd.h>
+
+/* 
+ * Questa funzione viene chiamata quando
+ * il processo riceve il segnale SIGUSR1
+ * e conta quante volte viene ricevuto il
+ * segnale
+ */
+ 
+void catcher(int signo)
+{
+	static int ntimes = 0;
+	printf("Processo %d: SIGUSR1 ricevuto #%d volte\n",
+	getpid(), ++ntimes);
+}
+
+int main ()
+{
+	int pid, ppid;
+	
+	/* 
+	 * inizializzazione della struccura
+	 * sig per impostare la gestione
+	 * del segnale
+	 */
+	struct sigaction sig, osig;
+	
+	/* 
+	 * creazione di alcune maschere dei segnali
+	 * in particolare "sigmask" viene utilizzata
+	 * per contenere un insieme di segnali
+	 * "oldmask" per salvare l'insieme di segnali
+	 * precedente e "zeromask" e' un insieme
+	 * vuoto di segnali
+	 */
+	sigset_t sigmask, oldmask, zeromask;
+	
+	/* 
+	 * assegnazione della funzione catcher 
+	 * come gestore del segnale SIGSR1.
+	 * Quindi quando arriva il segnale, viene 
+	 * chiamata la funzione "catcher"
+	 */
+	sig.sa_handler = catcher;
+	
+	/*
+	 * questo vuol dire che nessun
+	 * altro segnale deve essere bloccato
+	 * durante l'esecuzione di catcher
+	 */
+	sigemptyset (&sig.sa_mask);
+	
+	// non ci sono flag speciali
+	sig.sa_flags = 0;
+	
+	sigemptyset (&zeromask);
+	sigemptyset (&sigmask);
+	
+	/*
+	 * aggiungo all'insieme sigmask
+	 * il segnale SIGUSR1
+	 */
+	sigaddset(&sigmask, SIGUSR1);
+	
+	/* 
+	 * questa funzione blocca temporaneamente 
+	 * il segnale SIGUSR1, quindi viene messo 
+	 * in attesa fino a che non e' bloccato
+	 * esplicitamente
+	 */
+	sigprocmask(SIG_BLOCK, &sigmask, &oldmask);
+	
+	 /*
+	  * utilizziamo sigaction per impostare la gestione
+	  * del segnale SIGUSR1 con la configurazione
+	  * definita sig e salviamo la precedente configurazione
+	  * in osig
+	  */
+	sigaction(SIGUSR1, &sig, &osig)
+	
+	
+	/* 
+	 * IN SINTESI: quello che succede in questo
+	 * blocco e' che stiamo configurando la gestione
+	 * del segnale in modo da chiamare la funzione "catcher"
+	 * e quando il segnale viene ricevuto temporaneamente 
+	 * blocca il segnale per evitare interruzioni durante l'esecuzione
+	 * della funzione "catcher"
+	 */
+
+
+	if ((pid=fork()) < 0) {
+		perror("fork error");
+		exit(1);
+	}
+	else
+		if (pid = = 0) {
+			// figlio
+			ppid = getppid();
+			printf("figlio: mio padre e' %d\n", ppid);
+			while(1) {
+				sleep(1);
+				kill(ppid, SIGUSR1);
+				// sblocca il segnale SIGUSR1 e lo attende
+				
+				sigsuspend(&zeromask);
+			}
+		}
+		else {
+			// padre
+			
+			printf("padre: mio figlio e' %d\n", pid);
+			while(1) {
+				// sblocca il segnale SIGUR1 e lo attende
+				sigsuspend(&zeromask);
+				sleep(1);
+				kill(pid, SIGUSR1);
+			}
+		}
+}
+\end{lstlisting}
+
+\section{Primitive per la gestione della comunicazione via pipe e FIFO}
+\subsection{Pipe}
+\begin{verbatim}
+	int pipe(int fd[2]);
+\end{verbatim}
+le pipe sono \textbf{canali di comunicazione} unidirezionali che costituiscono un primo strumento di comunicazione, basato sullo \textbf{scambio di messaggi}, tra processi UNIX\\
+La creazione di una \textit{pipe} mediante la primitiva omonima restituisce in \textit{fd} due descrittori: \verb|fd[0]| per la lettura, \verb|fd[1]| per la scrittura
+\subsection{Esempio di comunicazione su pipe}
+\begin{lstlisting}
+#include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
+
+#define N_MESSAGGI 10
+
+int main ()
+{
+	int pid, j, k, piped[2];
+	
+	/*
+	 * apre le pipe creando due file descriptor,
+	 * uno per la lettura e l'altro per la
+	 * scrittura
+	 */
+	
+	if (pipe(piped) < 0) { exit(1); }
+	
+	if ((pid = fork()) < 0 ) { exit(2); }
+	else if (pid = = 0) {
+		// il figlio eredita una copia di piped[]
+		
+		/* 
+		 * il figlio e' il lettore della pipe
+		 * e quindi piped[1] non gli serve
+		 */
+		 
+		close(piped[1]);
+		
+		for (j = 1; j <= N_MESSAGGI; j++) {
+			read(piped[0], &k, sizeof (int));
+			printf("Figlio: ho letto dalla pipe 
+			il numero %d\n", k);
+		}
+		exit(0);		 
+	} 
+	else {
+		// Processo padre
+		
+		/*
+		 * il padre e' lo scritto e quindi piped[0]
+		 * non gli serve
+		 */
+		close(piped[0]);
+		for (j = 1; j <= N_MESSAGGI; j++) {
+			write(piped[1], &j, sizeof (int));
+		}
+		wait(NULL);
+		exit(0);
+	}
+}
+\end{lstlisting}
+\subsection{FIFO}
+\begin{verbatim}
+	#include <sys/types.h>
+	#include <sys/stat.h>
+	
+	int mkfifo (const char *pathname, mode_t mode);
+\end{verbatim}
+Le FIFO sono adatte per applicazione client-server in locale
+\begin{itemize}
+	\item il server apre una FIFO con un nome noto (ad es. \verb|/tmp/server|)
+	\item i client aprono la FIFO e scrivono le proprie richieste
+\end{itemize}
+\section{La suite di protocolli di rete TPC/IP}
+\subsection{Struttura a livelli}
+Per ridurre la complessità progettuale, tutte le reti sono progettate a livelli.\\
+Il numero di livelli, i loro nomi, il contenuto di ciascun livello differisce da rete a rete.\\
+I livelli più alti sono vicini all'uomo, quelli più bassi all'hardware.
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6 \linewidth]{../../Screen slide/Screenshot 2023-09-04 alle 15.37.31}
+	\caption{Livelli nel modello ISO/OSI}
+\end{figure}
+\subsubsection{Livello 1: Fisico}
+\textbf{Si occupa di trasmettere sequenze binarie sul canale di comunicazione}.\\
+A questo livello si specificano:
+\begin{itemize}
+	\item tensioni dello 0 e dell'1
+	\item tipi, dimensioni, impedenze dei cavi
+	\item tipi di connettori
+\end{itemize}
+\subsubsection{Livello 2: Data Link}
+Ha lo scopo di trasmmissione affidabile di pacchetti di dati (frame), accetta come input i frame e li trasmette sequenzialmente.\\
+Verifica la presenza di errori aggiungendo delle FCS
+\subsubsection{Livello 3: Rete}
+Questo livello gestisce l'instradamento dei messaggi e determina quali sistemi intermedi devono essere attraversati da un messaggio per giungere a destinazione
+\subsubsection{Livello 4: Trasporto}
+Fornisce servizi per il trasferimento dei dati \textit{end-to-end}.\\
+In particolare il livello 4 può:
+\begin{itemize}
+	\item frammentare i pacchetti in modo che abbiano dimensioni idonee al livello 3
+	\item rilevare/correggere gli errori
+	\item controllare il flusso
+	\item controllare le congestioni
+\end{itemize}
+\subsubsection{Livello 5: Sessione}
+Il livello 5 è responsabile dell'organizzazione dei dialogo e della sincronizzazione tra due programmi applicativi e del conseguente scambio di dati
+\subsubsection{Livello 6: Presentazione}
+Il livello di presentazione gestisce la sintassi dell'informazione da trasferire. L'informazione è infatti rappresentata in modi diversi su elaboratori diversi.
+\subsubsection{Livello 7: Applicazione}
+È il livello dei programmi applicativi, cioè di quei programmi appartenenti al SO o scritti dagli utenti, attraverso i quali l'utente finale utilizza la rete
+\section{Internet Protocol (IP)}
+Il protocollo IP esegue le seguenti principali funzioni:
+\begin{itemize}
+	\item Indirizzamento
+	\item Instradamento
+	\item Controllo dell'errore sull'intestazione IP
+	\item Se necessario esegue frammentazione e ri-assemblaggio dei pacchetti 
+\end{itemize}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=1 \linewidth]{../../Screen slide/Screenshot 2023-09-04 alle 15.52.54}
+	\caption{Header IPv4}
+\end{figure}
+IP consente ad ogni nodo (IP) connesso alla rete di comunicare con ogni altro nodo (IP), a tal fine utilizza un metodo globale di identificazione e indirizzamento di tutti i nodi (host e router) connessi alla stessa rete IP. IPv4 utilizza indirizzi di 32 bit.\\
+Un indirizzo IP è formato da: \textit{IP\_ADRESS} = \textit{network\_prefix + host\_id}
+\subsection{Configurazione di un nodo Linux a riga di comando}
+\begin{itemize}
+	\item \verb|ifconfig|: mostra/configura le interfacce di rete e indirizzi
+	\item \verb|route|: mostra/manipola la tabella di istradamento IP
+	\item \verb|ip|: tramite appositi sottocomandi permette di mostrare, modificare interfacce, indirizzi e tabelle di istradamento
+	\item \verb|arp|: manipola la cache ARP
+	\item \verb|nslookup|: effettua le interrogazioni al DNS
+	\item \verb|netstat|: mostra connessioni di rete, tabelle di routing, statistiche
+\end{itemize}
+\section{Protocollo ICMP}
+\textbf{ICMP} (Internet Control Message Protocol) è utilizzato per la trasmissione dei messaggi di errore e di controllo relativi al protocollo IP, i messaggi vengono manipolari dal software IP, non dagli applicativi utente.\\
+ICMP può quindi essere considerato un sub-strato di IP ma è funzionalmente al di sopra di IP.\\
+ICMP è una parte integrante di IP e deve essere incluso in ogni implementazione IP, un messaggio ICMP è incapsulato nella parte dati di un datagramma IP
+\section{Address Resolution Protocol (ARP)}
+Ogni quale volta si debba rilanciare un pacchetto da un nodo ad un altro bisogna conoscere l'indirizzo si sottorete del noto next hop identificato dal suo indirizzo IP, è necessaria quindi una funzione di mappaggio da indirizzi IP ad indirizzi di sottorete.\\
+Il protocollo ARP fornisce un meccanismo dinamico di associazione tra indirizzi MAC ed indirizzi IP.\\
+Viene utilizzato ogni qual volta un nodo di una LAN debba inviare un pacchetto ad un altro nodo della stessa LAN di cui però conosca solo l'indirizzo IP
+\section{Strato di trasporto}
+L'obbiettivo è fornisce una comunicazione \textit{end-to-end} ai processi applicativi. Per l'architettura internet sono stati definiti due protocolli di trasporto
+\begin{itemize}
+	\item User Datagram Protocol
+	\item Transmission Control Protocol
+\end{itemize}
+\section{User Datagram Protocol (UDP)}
+Consente alle applicazioni di scambiare messaggi singoli e fornisce un livello di servizio minimo:
+\begin{itemize}
+	\item È un protocollo senza connessione
+	\item Non supporta meccanismi di riscontro e recupero d'errore 
+\end{itemize}
+\section{Transmission Control Protocol (TPC)}
+È un protocollo \textit{end-to-end} con connessione e offre un servizio stream-oriented affidabile.\\
+Trasferisce un flusso informativo bi-direzionale non strutturato tra due host ed effettua operazioni di multiplazione e de-multiplazione.\\
+Non prevede nodi intermedi (TPC) e quindi non implementa la funzione di commutazione.\\
+\section{Network Adress Translation (NAT)}
+Un nodo NAT si usa normalmente quando si vuole interconnettere una rete IP con indirizzamento privato (intranet) alla rete pubblica (intenet). Il nodo che effettua l'interconnessione si chiama router NAT.\\
+La rete interna vede questo nodo come router per instradare i pacchetti verso nodi della rete esterna, la rete esterna vede i pacchetti provenienti dalla rete interna come inviati dal nodo NAT
+\section{Domain Name System (DNS)}
+Oltre alla notazione dotted viene spesso utilizzata anche un'altra forma di notazione (mnemonica), per esempio "160.78.48.141" è uguale a "www.unipr.it".\\
+È necessaria la \textbf{funzionalità di traduzione di nomi mnemonici} in indirizzo e viceversa.\\
+I nomi sono organizzati gerarchicamente in \textbf{domini}:
+\begin{itemize}
+	\item in nomi sono costituiti da stringe separate da "."
+	\item la parte più significativa è a destra
+\end{itemize}
+\section{Primitive per la gestione della comunicazione via socket}
+Una \textbf{socket} è un punto estremo di un canale di comunicazione accessibile mediante un file descriptor, le socket costituiscono un fondamentale strumento di comunicazione, basato sullo scambio di messaggi, tra processi locali e/o remoti (sia UNIX che di altri sistemi operativi).\\
+Una socket è un oggetto con un tipo, determinato dal sottoinsieme delle seguenti proprietà che quel tipo di socket garantisce
+\begin{enumerate}
+	\item \textbf{Consegna ordinata dei messaggi}
+	\item \textbf{Consegna non duplicata}
+	\item \textbf{Consegna affidabile} (i messaggi non possono andare persi)
+	\item \textbf{Preservamento dei confini dei messaggi} (i messaggi inviati non vengono frazionati nella comunicazione)
+	\item \textbf{Supporto per i messaggi} \textit{out-of-band}
+	\item \textbf{Comunicazione orientata alla connessione}
+\end{enumerate}
+Le pipe (che non sono socket) garantiscono le proprietà 1, 2 e 3.\\
+Alcuni tipi predefiniti di socket
+\begin{itemize}
+	\item \textbf{SOCK\_STREAM}: orientata alla connessione, trasferisce byte con proprietà 1, 2, 3, 5, 6
+	\item \textbf{SOCK\_DGRAM}: trasferisce datagram con proprietà 4 ma non altre
+	\item \textbf{SOCK\_SEQPACKET}: trasferisce datagram con proprietà 1, 2, 3, 4, 5, 6
+	\item \textbf{SOCK\_RAW}: permette l'accesso diretto ai protocolli di rete sottostanti
+\end{itemize}
+\subsection{Creazione della socket}
+\begin{verbatim}
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	
+	int socket(int domain, int type, int protocol);
+\end{verbatim}
+Una socket viene creata nel dominio di comunicazione \verb|domain|\\
+Domini principali
+\begin{itemize}
+	\item \textbf{PF\_UNIX}: dominio per una comunicazione locale
+	\item \textbf{PF\_INET}: dominio per una comunicazione su TCP/IP (IPv4)
+	\item \textbf{PF\_INET6}: dominio per una comunicazione su TCP/IP (IPv6)
+\end{itemize}
+\verb|type| indica il tipo di socket che si vuole creare(es. \verb|SOCK_STREAM|); \verb|protocol| indica lo specifico protocollo utilizzato tra quelli disponibili nel dominio
+\subsection{Assegnazione nome alla socket}
+\begin{verbatim}
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	
+	int bind (int sockfd, struct sockaddr *my_addr, socklen_t addrlen);
+\end{verbatim}
+\verb|bind| assegna un nome ad una socket per renderla designabile (indirizzabile) da parte di un processo intenzionato a comunicare con il processo che creato la socket.\\
+L'interfaccia è generica (\verb|my_addr, addrlen|) in quanto i diversi domini di comunicazione prevedono indirizzi di forma diversa
+\newpage
+\subsection{Strutture dati utilizzate da bind in AF\_INET}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8 \linewidth]{../../Screen slide/Screenshot 2023-09-04 alle 17.41.26}
+	\caption{Strutture dati utilizzate da bind in AF\_INET}
+\end{figure}
+\subsection{Chiusura di una socket}
+Chiusura di una socket e successiva \verb|bind| per lo stesso indirizzo
+\begin{verbatim}
+	close(sock);
+\end{verbatim}
+Si utilizza la \verb|setsockopt| per forzare il riuso dell'indirizzo nel bind che quindi non fallirà anche se esiste già una socket \textbf{in fase in attesa} con lo stesso indirizzo
+\begin{verbatim}
+	int on = 1;
+	ret = setsockopt (sock, SOL\_SOCKET, SO\_REUSEADDR, &on, sizeof(on));
+	...
+	bind(...);
+\end{verbatim}
+\subsection{Creazione della connessione}
+Un \textbf{client} inizia una connessione sulla propria socket specificando l'indirizzo della socket del server
+\begin{verbatim}
+	connect (int cli_sockfd, ...);
+	/* bloccante */
+\end{verbatim}
+Il \textbf{server} dichiara al SO la sua disponibilità a ricevere connessioni sulla propria socket
+\begin{verbatim}
+	listen (int serv_sockfd, ...);
+	/* non bloccante */
+\end{verbatim}
+Il \textbf{server} attende richieste di connessioni sulla propria socket e riceve un nuovo descrittore per ogni nuova connessione
+\begin{verbatim}
+	conn_sockfd = accept (int serv_sockfd,...);
+	/* bloccante */
+\end{verbatim}
+È sincronizzato con il codice sopra.\\
+Su socket connesse
+\begin{verbatim}
+	write (cli_sockfd, ...);
+	read (cli_sockfd, ...);
+\end{verbatim}
+e 
+\begin{verbatim}
+	read (conn_sockfd, ...);
+	write (conn_sockfd, ...);
+\end{verbatim}
+\subsection{Connect, listen e accept}
+\textbf{Connect}
+\begin{verbatim}
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	
+	int connect(int sockfd, const struct sockaddr *serv_addr, socket_t addrlen);
+\end{verbatim}
+\textbf{Listen}
+\begin{verbatim}
+	#include <sys/socket.h>
+	
+	int listen (int s, int backlog);
+\end{verbatim}
+\verb|backlog| specificava la dimensione massima della coda delle richieste di connessione pendenti (non ancora accettate).\\
+\textbf{Accept}
+\begin{verbatim}
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	
+	int accept (int s, struct sockaddr *addr, socklen_t *addrlen);
+\end{verbatim}
+\verb|s| è il descrittore della socket di controllo, in \verb|addr| (se non è NULL viene memorizzato l'indirizzo del cliente che si è connesso)
+\subsection{Server concorrente}
+Normalmente un \textbf{server su SOCK\_STREAM crea un nuovo figlio dedicato a gestire una nuova connessione da un cliente} mentre il server padre continua ad attendere nuove connessioni.\\
+In questo codice i client in coda vengono serviti al più presto da un server dedicato, ed eventuali ritardi di un client non hanno effetto sul servizio agli altri
+\begin{lstlisting}[xleftmargin=-2cm]
+do
+{
+	// Attesa di una connessione
+	if (msgsock = accept(sock, (struct sockaddr *) &client, 
+		(socklen_t *) &len) < 0) {
+			perror("accept");
+			exit(-1);
+	}
+	else {
+		if (fork() == 0) {
+			// Server figlio
+			printf("Serving connection from %s, port %d\n",
+				inet_ntoa(client.sin_addr), 
+				ntohs(client.sin_port));
+				
+				close(sock); 
+				// non interessa la socket di controllo
+				
+				myservice(msgsock);
+				/* servizio specifico del server 
+				attraverso il server connesso */
+				
+				close(msgsock);
+				/* la socket connessa
+				puo' essere rimossa */
+				exit(0);
+		}
+		else {
+			close(msgsock);
+			/* non interessa la socket
+			connessa: si ritorna in 
+			accept */
+		}
+	}
+}
+while(1);
+\end{lstlisting}  
+\newpage
+\subsection{Datagram}
+Non vi è alcuno stato di connessione (protocollo UDP di TCP/IP)
+\begin{verbatim}
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	
+	int sendto (int s, const void *msg, size_t len, int flags, 
+	const struct sockaddr *to, socklen_t tolen);
+\end{verbatim}
+Invio di un messaggio con designazione esplicita del destinatario
+\subsection{Ricezione di un messaggio}
+\begin{verbatim}
+	int recvfrom (int s, void *buf, size_t len, int flags, 
+	struct sockaddr *from, socklen_t *fromlen);
+\end{verbatim}
+L'indirizzo del mittente del messaggio viene posto in \verb|from| (se diverso da NULL)
+\section{Select}
+\begin{verbatim}
+	#include <sys/time.h>
+	#include <sys/types.h>
+	#include <unistd.h>
+	
+	int select (int n, fd_set *readfds, fd_set *writefds,
+		fd_set *execptfds, struct timevale *timeout)
+\end{verbatim}
+La primitiva \verb|select| permette di attendere una variazione di stato per i file descriptor all'interno di tre distinti insiemi di file descriptor 
+\begin{itemize}
+	\item si attende la disponibilità di dati di lettura per i fd contenenti in \verb|readfds|
+	\item si attende la possibilità di scrittura immediata sui fd contenuti in \verb|writefds|
+	\item si attende la presenza di eccezioni per i fd contenuti in \verb|exceptfds|
+\end{itemize}
+Il valore di uscita è il numero di descrittori che sono stati variati di stato.\\
+Gli \verb|fd_set| sono \textbf{modificati} in uscita dalla \verb|select| in modo che contengano i soli fd che hanno variato di stato\\
+Macro utili per la manipolazione di variabili \textit{fd\_set}
+\begin{itemize}
+	\item \verb|FD_ZERO(fd_set *set)|: azzera un fd\_set
+	\item \verb|FD_CLR(int fd, fd_set *set)|: rimuove un fd da un fd\_set
+	\item \verb|FD_SET(int fd, fd_set *set)|: inserisce un fd in un fd\_set
+	\item \verb|FD_ISSET(int fd, fd_set *set)|: predicato che verifica se un certo fd è membro di un fd\_set
+\end{itemize}
+
+
+
 
 
 \newpage
